@@ -7,29 +7,48 @@ require './lib/engines/hcktest/targets'
 # AutoHCK module
 module AutoHCK
   # HCKClient class
-  class HCKClient < Machine
-    attr_reader :name, :id, :kit
+  class HCKClient
+    # Client cooldown timeout in seconds, to prevent hangs (30 minutes)
+    CLIENT_COOLDOWN_TIMEOUT = 1800
+
+    # Client cooldown sleep after thread is joined in seconds
+    CLIENT_COOLDOWN_SLEEP = 60
+
+    attr_reader :name, :kit
     attr_writer :support
 
-    def initialize(project, setupmanager, studio, tag, name)
-      @id = tag[-1]
-      super(project, name, setupmanager, @id, tag)
+    def initialize(project, setup_manager, studio, name)
+      @project = project
+      @logger = project.logger
       @studio = studio
-      @kit = setupmanager.kit
+      @name = name
+      @kit = setup_manager.kit
+      @setup_manager = setup_manager
       @pool = 'Default Pool'
     end
 
     def create_snapshot
-      @setupmanager.create_client_snapshot(@tag)
+      @setup_manager.create_client_snapshot(@name)
     end
 
     def delete_snapshot
-      @setupmanager.delete_client_snapshot(@tag)
+      @setup_manager.delete_client_snapshot(@name)
     end
 
-    def run
-      create_snapshot
-      super
+    def run(run_opts = nil)
+      @setup_manager.run(@name, run_opts)
+    end
+
+    def alive?
+      @setup_manager.client_alive?(@name)
+    end
+
+    def keep_alive
+      @setup_manager.keep_client_alive(@name)
+    end
+
+    def clean_last_run
+      @setup_manager.clean_last_client_run(@name)
     end
 
     def add_target_to_project
@@ -71,8 +90,8 @@ module AutoHCK
 
     def move_machine_to_pool
       @logger.info("Moving #{@name} to pool")
-      @tools.move_machine(@name, @pool, @project.tag)
-      @pool = @project.tag
+      @tools.move_machine(@name, @pool, @project.engine.tag)
+      @pool = @project.engine.tag
     end
 
     def set_machine_ready
@@ -83,22 +102,27 @@ module AutoHCK
     end
 
     def run_pre_test_commands
-      @project.engine.driver['pretestcommands']&.each do |command|
-        desc = command['desc']
-        cmd = command['run']
+      @project.engine.drivers&.each do |driver|
+        driver['pretestcommands']&.each do |command|
+          desc = command['desc']
+          cmd = command['run']
 
-        @logger.info("Running command (#{desc}) on client #{@name}")
-        @tools.run_on_machine(@name, desc, cmd)
+          @logger.info("Running command (#{desc}) on client #{@name}")
+          @tools.run_on_machine(@name, desc, cmd)
+        end
       end
     end
 
-    def install_driver
-      method = @project.engine.driver['install_method']
-      path = @project.driver_path
-      inf = @project.engine.driver['inf']
-      custom_cmd = @project.engine.driver['install_command']
-      @logger.info("Installing #{method} driver #{inf} in #{@name}")
-      @tools.install_machine_driver_package(@name, path, method, inf, custom_cmd)
+    def install_drivers
+      path = @project.options.test.driver_path
+
+      @project.engine.drivers&.each do |driver|
+        method = driver['install_method']
+        inf = driver['inf']
+        custom_cmd = driver['install_command']
+        @logger.info("Installing #{method} driver #{inf} in #{@name}")
+        @tools.install_machine_driver_package(@name, path, method, inf, custom_cmd)
+      end
     end
 
     def machine_in_default_pool
@@ -125,19 +149,13 @@ module AutoHCK
       initialize_client_wait
     end
 
-    # Client cooldown timeout in seconds, to prevent hangs (30 minutes)
-    CLIENT_COOLDOWN_TIMEOUT = 1800
-
-    # Client cooldown sleep after thread is joined in seconds
-    CLIENT_COOLDOWN_SLEEP = 60
-
     def configure
       @tools = @studio.tools
       @cooldown_thread = Thread.new do
         return_when_client_up
         @logger.info("Preparing client #{@name}...")
         @project.extra_sw_manager.install_software_before_driver(@tools, @name)
-        install_driver
+        install_drivers
         @project.extra_sw_manager.install_software_after_driver(@tools, @name)
         @logger.info("Configuring client #{@name}...")
         configure_machine
@@ -170,18 +188,8 @@ module AutoHCK
       set_machine_ready
     end
 
-    def keep_alive
-      return if alive?
-
-      @logger.info("Starting client #{@name}")
-      @pid = @setupmanager.run(@tag)
-      e_message = "Client #{@name} new PID could not be retrieved"
-      raise ClientRunError, e_message unless @pid
-
-      @logger.info("Client #{@name} new PID is #{@pid}")
-      raise ClientRunError, "Could not start client #{@name}" unless alive?
-    rescue CmdRunError
-      raise ClientRunError, "Could not start client #{@name}"
+    def abort
+      @setup_manager.abort_client(@name)
     end
   end
 end

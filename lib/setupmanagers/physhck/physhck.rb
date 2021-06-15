@@ -12,7 +12,6 @@ module AutoHCK
     attr_reader :kit
 
     PHYSHCK_CONFIG_JSON = 'lib/setupmanagers/physhck/physhck.json'
-    PLATFORMS_JSON = 'lib/engines/hcktest/platforms.json'
 
     def initialize(project)
       @project = project
@@ -67,13 +66,45 @@ module AutoHCK
       -1
     end
 
+    def studio_alive?
+      @logger.info('Physical machine is always alive')
+    end
+
+    def client_alive?(_name)
+      @logger.info('Physical machine is always alive')
+    end
+
+    def keep_studio_alive
+      @logger.info('Physical machine is always alive')
+    end
+
+    def keep_client_alive(_name)
+      @logger.info('Physical machine is always alive')
+    end
+
+    def clean_last_studio_run
+      @logger.info('Clean last run is currently not supported for physical machines')
+    end
+
+    def clean_last_client_run(_name)
+      @logger.info('Clean last run is currently not supported for physical machines')
+    end
+
     def create_studio
       studio_ip = @setup['st_ip']
       @studio = HCKStudio.new(@project, self, 'st', studio_ip)
     end
 
-    def create_client(tag, name)
-      HCKClient.new(@project, self, @studio, tag, name)
+    def create_client(name)
+      HCKClient.new(@project, self, @studio, name)
+    end
+
+    def abort_studio
+      @logger.info('Abort is currently not supported for physical machines')
+    end
+
+    def abort_client(_name)
+      @logger.info('Abort is currently not supported for physical machines')
     end
 
     def close

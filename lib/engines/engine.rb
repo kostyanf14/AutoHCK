@@ -44,12 +44,20 @@ module AutoHCK
       end
     end
 
+    def tag
+      @engine.tag
+    end
+
     def run
       @engine.run
     end
 
-    def driver
-      @engine.driver
+    def drivers
+      @engine.drivers
+    end
+
+    def target
+      @engine.target
     end
 
     def platform

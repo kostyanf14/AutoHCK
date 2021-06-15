@@ -18,7 +18,7 @@ module AutoHCK
     class ListTestsError < AutoHCKError; end
 
     def list_tests(log)
-      @tests = @tools.list_tests(@target['key'], @machine, @project.tag,
+      @tests = @tools.list_tests(@target['key'], @machine, @project.engine.tag,
                                  @ms_playlist)
       raise ListTestsError, 'Failed to list tests' unless @tests
 
@@ -53,7 +53,7 @@ module AutoHCK
     end
 
     def custom_playlist(log)
-      playlist = @project.engine.driver['playlist']
+      playlist = @project.engine.target['playlist']
       return unless playlist
 
       @tests.select! { |test| playlist.include?(test['name']) }
@@ -62,7 +62,7 @@ module AutoHCK
     end
 
     def custom_blacklist(log)
-      blacklist = @project.engine.driver['blacklist']
+      blacklist = @project.engine.target['blacklist']
       @tests.reject! { |test| blacklist.include?(test['name']) } if blacklist
       @logger.info('Applying custom blacklist') if log && blacklist
     end

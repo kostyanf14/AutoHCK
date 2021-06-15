@@ -2,6 +2,8 @@
 
 require 'uri'
 
+require './lib/setupmanagers/hckclient'
+require './lib/setupmanagers/hckstudio'
 require './lib/auxiliary/json_helper'
 require './lib/auxiliary/host_helper'
 require './lib/auxiliary/iso_helper'
@@ -15,7 +17,7 @@ module AutoHCK
 
     attr_reader :platform
 
-    PLATFORMS_JSON = 'lib/engines/hcktest/platforms.json'
+    PLATFORMS_JSON_DIR = 'lib/engines/hcktest/platforms'
     CONFIG_JSON = 'lib/engines/hckinstall/hckinstall.json'
     ISO_JSON = 'lib/engines/hckinstall/iso.json'
     KIT_JSON = 'lib/engines/hckinstall/kit.json'
@@ -25,7 +27,7 @@ module AutoHCK
     def initialize(project)
       @project = project
       @logger = project.logger
-      @project.append_multilog("#{project.install_platform}.log")
+      @project.append_multilog("#{project.options.install.platform}.log")
       init_workspace
       init_config
       init_class_variables
@@ -34,7 +36,7 @@ module AutoHCK
     end
 
     def init_workspace
-      @workspace_path = [@project.workspace_path, @project.install_platform,
+      @workspace_path = [@project.workspace_path, @project.options.install.platform,
                          @project.timestamp].join('/')
       begin
         FileUtils.mkdir_p(@workspace_path)
@@ -45,12 +47,16 @@ module AutoHCK
     end
 
     def read_platform
-      platforms = read_json(PLATFORMS_JSON, @logger)
-      platform_name = @project.install_platform
+      platform_name = @project.options.install.platform
+      platform_json = "#{PLATFORMS_JSON_DIR}/#{platform_name}.json"
+
       @logger.info("Loading platform: #{platform_name}")
-      res = platforms.find { |p| p['name'] == platform_name }
-      @logger.fatal("#{platform_name} does not exist") unless res
-      res || raise(InvalidConfigFile, "#{platform_name} does not exist")
+      unless File.exist?(platform_json)
+        @logger.fatal("#{platform_name} does not exist")
+        raise(InvalidConfigFile, "#{platform_name} does not exist")
+      end
+
+      read_json(platform_json, @logger)
     end
 
     def read_iso(platform_name)
@@ -88,14 +94,14 @@ module AutoHCK
     end
 
     def client_platform
-      @platform['clients'][@clients_name.first]['image'][/Win\w+x(86|64)/]
+      @platform['clients'].values.first['image'][/Win\w+x(86|64)/]
     end
 
     def init_class_variables
       @iso_path = @project.config['iso_path']
 
       @platform = read_platform
-      @clients_name = @platform['clients'].keys
+      @clients_name = @platform['clients'].map { |_k, v| v['name'] }
 
       @studio_iso_info = read_iso(studio_platform(@platform['kit']))
       @client_iso_info = read_iso(client_platform)
@@ -141,31 +147,35 @@ module AutoHCK
       @client_iso_info['path'].chomp!('/')
     end
 
-    def driver
+    def drivers
+      nil
+    end
+
+    def target
       nil
     end
 
     def run_studio(iso_list = [], snapshot: true)
       st_opts = {
-        studio_snapshot: snapshot,
-        studio_iso_list: iso_list
+        create_snapshot: snapshot,
+        attach_iso_list: iso_list
       }
 
-      st = Machine.new(@project, 'st', @project.setup_manager, 0, 'st')
+      st = @project.setup_manager.create_studio
       st.run(st_opts)
       st
     end
 
     def run_client(name, snapshot: true)
       cl_opts = {
-        clients_snapshot: snapshot,
-        clients_iso_list: [
+        create_snapshot: snapshot,
+        attach_iso_list: [
           @setup_client_iso,
           @client_iso_info['path']
         ]
       }
 
-      cl = Machine.new(@project, name, @project.setup_manager, name[/\d+/], name)
+      cl = @project.setup_manager.create_client(name)
       cl.run(cl_opts)
       cl
     end
@@ -179,7 +189,7 @@ module AutoHCK
                        ], snapshot: false)
 
       Timeout.timeout(@studio_install_timeout) do
-        @logger.info("Waiting for #{@st.name} #{@st.id} instalation finished")
+        @logger.info('Waiting for studio installation finished')
         sleep 5 while @st.alive?
       end
     end
@@ -198,7 +208,7 @@ module AutoHCK
 
       @cl.each do |client|
         Timeout.timeout(@client_install_timeout) do
-          @logger.info("Waiting for #{client.name} #{client.id} instalation finished")
+          @logger.info("Waiting for #{client.name} installation finished")
           sleep 5 while client.alive?
         end
       end
@@ -245,13 +255,17 @@ module AutoHCK
       create_iso(@setup_client_iso, [@hck_setup_scripts_path])
     end
 
+    def tag
+      "install-#{@project.options.install.platform}"
+    end
+
     def run
       @logger.debug('HCKInstall: run')
 
       prepare_setup_scripts_config
 
       if @project.setup_manager.check_studio_image_exist
-        if @project.options.force_install
+        if @project.options.install.force
           @logger.info('HCKInstall: Studio image exist, force reinstall started')
 
           prepare_studio_iso

@@ -11,8 +11,8 @@ module AutoHCK
       @machine = client.name
       @client = client
       @project = project
-      @name = project.engine.driver['name']
-      @type = project.engine.driver['type']
+      @name = project.engine.target['name']
+      @type = project.engine.target['type']
       @tools = tools
       @pool = pool
       @logger = project.logger
@@ -29,7 +29,7 @@ module AutoHCK
 
     def add_target_to_project
       retries ||= 0
-      tag = @project.tag
+      tag = @project.engine.tag
       target = search_target
       @logger.info("Adding target #{@name} on #{@machine} to project #{tag}")
       return target if @tools.create_project_target(target['key'], tag, @machine)

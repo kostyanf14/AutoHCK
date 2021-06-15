@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require './lib/exceptions'
-require './lib/setupmanagers/virthck/virthck'
 require './lib/setupmanagers/physhck/physhck'
 
 # AutoHCK module
@@ -15,7 +14,6 @@ module AutoHCK
     #
     class SetupManagerFactory
       SETUP_MANAGERS = {
-        virthck: VirtHCK,
         physhck: PhysHCK
       }.freeze
 
@@ -80,12 +78,44 @@ module AutoHCK
       @setupmanager.run(name, run_opts)
     end
 
+    def studio_alive?
+      @setupmanager.studio_alive?
+    end
+
+    def client_alive?(name)
+      @setupmanager.client_alive?(name)
+    end
+
+    def keep_studio_alive
+      @setupmanager.keep_studio_alive
+    end
+
+    def keep_client_alive(name)
+      @setupmanager.keep_client_alive(name)
+    end
+
+    def clean_last_studio_run
+      @setupmanager.clean_last_studio_run
+    end
+
+    def clean_last_client_run(name)
+      @setupmanager.clean_last_client_run(name)
+    end
+
     def create_studio
       @setupmanager.create_studio
     end
 
-    def create_client(tag, name)
-      @setupmanager.create_client(tag, name)
+    def create_client(name)
+      @setupmanager.create_client(name)
+    end
+
+    def abort_studio
+      @setupmanager.abort_studio
+    end
+
+    def abort_client(name)
+      @setupmanager.abort_client(name)
     end
 
     def close
