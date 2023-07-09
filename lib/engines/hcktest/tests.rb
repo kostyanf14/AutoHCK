@@ -137,17 +137,20 @@ module AutoHCK
     end
 
     def queue_test(test, wait: false)
-      @tools.queue_test(test['id'], @target['key'], @client.name, @tag,
+      id = test['id']
+
+      @logger.info("Adding to queue: #{test['name']} (#{id}) [#{test['estimatedruntime']}]")
+      @tools.queue_test(id, @target['key'], @client.name, @tag,
                         test_support(test))
 
-      @tests_extra[test['id']] ||= {}
-      @tests_extra[test['id']]['queued_at'] = DateTime.now
+      @tests_extra[id] ||= {}
+      @tests_extra[id]['queued_at'] = DateTime.now
 
-      @last_queued_id = test['id']
+      @last_queued_id = id
 
       return unless wait
 
-      wait_queued_test(test['id'])
+      wait_queued_test(id)
     end
 
     def current_test
@@ -415,7 +418,6 @@ module AutoHCK
 
       tests = @tests
       tests.each do |test|
-        @logger.info("Adding to queue: #{test['name']} (#{test['id']}) [#{test['estimatedruntime']}]")
         queue_test(test, wait: true)
         list_tests
         handle_test_running
