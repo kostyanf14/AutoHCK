@@ -53,8 +53,8 @@ module AutoHCK
     end
 
     def find_pr
-      pr = @github.pulls(@repo).find { |x| x['head']['sha'] == @commit }
-      if pr.nil?
+      @pr = @github.pulls(@repo).find { |x| x['head']['sha'] == @commit }
+      if @pr.nil?
         unless check_closed_pr
           @logger.warn('Pull request commit hash not valid, disconnecting github.')
           @api_connected = false
@@ -63,10 +63,10 @@ module AutoHCK
         return nil
       end
 
-      @logger.info("PR ##{pr['number']}: #{pr['title']}")
-      @logger.info(pr['html_url'])
+      @logger.info("PR ##{@pr['number']}: #{@pr['title']}")
+      @logger.info(@pr['html_url'])
 
-      pr
+      @pr
     end
 
     def create_status(state, description)
