@@ -4,6 +4,8 @@ require 'octokit'
 
 # AutoHCK module
 module AutoHCK
+  POLLING_COMMENTS_INTERVAL = 60
+
   # github class
   class Github
     def initialize(config, logger, url, tag, commit)
@@ -16,6 +18,9 @@ module AutoHCK
       @commit = commit.to_s
       @context = "HCK-CI/#{tag}"
       connect unless @commit.empty?
+
+      @callbacks = {}
+      @checked_comments = []
     end
 
     def connect
@@ -66,6 +71,8 @@ module AutoHCK
       @logger.info("PR ##{@pr['number']}: #{@pr['title']}")
       @logger.info(@pr['html_url'])
 
+      start_polling_comments
+
       @pr
     end
 
@@ -92,6 +99,59 @@ module AutoHCK
         handle_pending(tests_stats['currentcount'], tests_stats['total'],
                        tests_stats['failed'])
       end
+    end
+
+    def register_commands(command, callback)
+      @logger.debug("Registering GitHub callback for command #{command}")
+
+      @callbacks[command] = callback
+    end
+
+    def poll_comments
+      # reactions: +1, -1, laugh, confused, heart, hooray, rocket, eyes
+
+      @github.issue_comments(@repo, @pr['number']).each do |comment|
+        id = comment[:id]
+
+        if @checked_comments.include? id
+          @logger.debug("Skipping GitHub comment #{id}")
+          next
+        end
+
+        @checked_comments << id
+
+        comment_context, comment_action, *comment_data = comment[:body].split
+        @logger.info("Processing GitHub comment #{id}: #{comment_context}, #{comment_action}, #{comment_data}")
+
+        next unless comment_context == @context
+
+        unless @callbacks.key?(comment_action)
+          @github.create_issue_comment_reaction(@repo, id, 'confused')
+          next
+        end
+
+        @callbacks[comment_action].call(comment_data)
+        @github.create_issue_comment_reaction(@repo, id, '+1')
+      end
+    end
+
+    def start_polling_comments
+      @poll_thread = Thread.new do
+        while sleep POLLING_COMMENTS_INTERVAL
+          begin
+            break if Thread.current.thread_variable_get(:close)
+
+            poll_comments
+          rescue StandardError => e
+            @logger.warn("Poll comments failed: #{e.class} #{e.message}\n #{e.backtrace.join("\n")}")
+          end
+        end
+      end
+    end
+
+    def stop_polling_comments
+      @poll_thread&.thread_variable_set(:close, true)
+      @poll_thread&.join
     end
 
     def handle_success

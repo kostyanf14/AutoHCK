@@ -249,6 +249,12 @@ module AutoHCK
     end
 
     def run
+      @project.github.register_commands('create_project_package',
+                                        lambda { |data|
+                                          puts "create_project_package execute #{data}"
+                                          @client1.create_package(partial: true)
+                                        })
+
       upload_driver_package unless @driver_path.nil?
 
       @studio = @project.setup_manager.create_studio

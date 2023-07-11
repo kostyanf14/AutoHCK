@@ -53,8 +53,8 @@ module AutoHCK
       @tests.run
     end
 
-    def create_package
-      @tests.create_project_package
+    def create_package(partial: false)
+      @tests.create_project_package(partial: partial)
     end
 
     def configure_machine

@@ -153,6 +153,14 @@ module AutoHCK
       wait_queued_test(id)
     end
 
+    def queue_test_by_name(name, wait: false)
+      test_data = @tests.find { |t| t['name'] == name }
+
+      return if test_data.nil?
+
+      queue_test(test_data, wait: wait)
+    end
+
     def current_test
       @tests.find { |test| test['executionstate'] == 'Running' }
     end
@@ -374,10 +382,11 @@ module AutoHCK
       end
     end
 
-    def create_project_package
+    def create_project_package(partial: false)
       res = @tools.create_project_package(@tag)
       @logger.info('Results package successfully created')
-      r_name = @tag + File.extname(res['hostprojectpackagepath'])
+      r_name = @tag + (partial ? '_partial' : '') + File.extname(res['hostprojectpackagepath'])
+      @project.result_uploader.delete_file(r_name)
       @project.result_uploader.upload_file(res['hostprojectpackagepath'], r_name)
     end
 
@@ -409,6 +418,12 @@ module AutoHCK
     end
 
     def run
+      @project.github.register_commands('run',
+                                        lambda { |data|
+                                          @logger.debug("Execute run with args #{data}")
+                                          queue_test_by_name(data.join(' '), wait: false)
+                                        })
+
       @total = @tests.count
 
       load_clients_system_info

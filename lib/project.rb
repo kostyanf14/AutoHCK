@@ -185,6 +185,7 @@ module AutoHCK
     def close
       @logger.debug('Closing AutoHCK project')
 
+      @github&.stop_polling_comments
       @result_uploader&.upload_file(@logfile_path, 'AutoHCK.log')
 
       @setup_manager&.close
