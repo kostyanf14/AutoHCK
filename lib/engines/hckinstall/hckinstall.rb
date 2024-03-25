@@ -240,12 +240,12 @@ module AutoHCK
         if studio
           prepare_studio_drives
 
+          iso_list = [@setup_studio_iso, @studio_iso_info['path']]
+          iso_list.push(@kit_path) if @kit_is_iso
+
           vms << [
             'studio',
-            run_studio(scope, [
-                         @setup_studio_iso,
-                         @studio_iso_info['path']
-                       ], keep_alive: false, snapshot: false)
+            run_studio(scope, iso_list, keep_alive: false, snapshot: false)
           ]
         end
 
@@ -293,12 +293,14 @@ module AutoHCK
 
       installers = [
         "#{@hck_setup_scripts_path}/Kits/#{kit_type}#{kit_version}Setup.exe",
-        "#{@hck_setup_scripts_path}/Kits/#{kit_type}#{kit_version}/#{kit_type}Setup.exe"
+        "#{@hck_setup_scripts_path}/Kits/#{kit_type}#{kit_version}/#{kit_type}Setup.exe",
+        "#{@hck_setup_scripts_path}/Kits/#{kit_type}#{kit_version}Setup.iso"
       ]
 
-      raise unless (file = installers.find { File.exist? _1 })
+      raise unless (@kit_path = installers.find { File.exist? _1 })
 
-      @logger.info("HLK installer #{file} was found")
+      @kit_is_iso = @kit_path.end_with?('.iso')
+      @logger.info("HLK installer #{@kit_path} was found")
 
       create_setup_scripts_config(@hck_setup_scripts_path, config)
     end
@@ -360,7 +362,7 @@ module AutoHCK
         file_gsub(build_studio_answer_file_path(file),
                   @hck_setup_scripts_path + "/#{file}", replacement_list)
       end
-      create_iso(@setup_studio_iso, [@hck_setup_scripts_path])
+      create_iso(@setup_studio_iso, [@hck_setup_scripts_path], @kit_is_iso ? ['Kits'] : [])
 
       @project.setup_manager.create_studio_image
     end
