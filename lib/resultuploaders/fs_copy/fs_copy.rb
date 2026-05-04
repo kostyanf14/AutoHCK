@@ -50,6 +50,7 @@ module AutoHCK
     def upload_file(l_path, r_name)
       handle_exceptions(__method__) do
         r_path = "#{@path}/#{r_name}"
+        @logger.info("FS file upload: #{l_path} to #{r_path}")
         FileUtils.copy(l_path, r_path)
       end
     end
@@ -57,6 +58,7 @@ module AutoHCK
     def update_file_content(content, r_name)
       handle_exceptions(__method__) do
         r_path = "#{@path}/#{r_name}"
+        @logger.info("FS file update: #{r_path}")
         File.write(r_path, content)
       end
     end
