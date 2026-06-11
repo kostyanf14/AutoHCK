@@ -69,6 +69,7 @@ module AutoHCK
   autoload_relative :QemuHCKError, 'setupmanagers/qemuhck/exceptions'
   autoload_relative :QemuMachine, 'setupmanagers/qemuhck/qemu_machine'
   autoload_relative :QemuRunError, 'setupmanagers/qemuhck/exceptions'
+  autoload_relative :QMPError, 'setupmanagers/qemuhck/exceptions'
   autoload_relative :ReplacementMap, 'auxiliary/replacement_map'
   autoload_relative :ResourceScope, 'auxiliary/resource_scope'
   autoload_relative :ResultUploader, 'resultuploaders/result_uploader'

@@ -28,8 +28,6 @@ module AutoHCK
         run_cmd('system_powerdown')
       end
 
-      private
-
       def run_cmd(cmd)
         unless @negotiated
           send_cmd 'qmp_capabilities'
@@ -39,6 +37,19 @@ module AutoHCK
         send_cmd cmd
       end
 
+      def wait_for(name, value, timeout = 60)
+        Timeout.timeout(timeout) do
+          loop do
+            response = JSON.parse(@socket_internal.readline)
+            @logger.debug("Received QMP message: #{response}")
+            return response if response[name] == value
+            raise(QMPError, response['error'].to_s) if response.key?('error')
+          end
+        end
+      end
+
+      private
+
       def send_cmd(cmd)
         @socket_internal.write JSON.dump({ 'execute' => cmd })
         @socket_internal.flush
@@ -46,7 +57,7 @@ module AutoHCK
         loop do
           response = JSON.parse(@socket_internal.readline)
           break response['return'] if response.key?('return')
-          raise response['error'].to_s if response.key?('error')
+          raise(QMPError, response['error'].to_s) if response.key?('error')
         end
       end
     end
