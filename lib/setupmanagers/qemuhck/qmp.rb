@@ -28,13 +28,13 @@ module AutoHCK
         run_cmd('system_powerdown')
       end
 
-      def run_cmd(cmd)
+      def run_cmd(cmd, arguments = nil)
         unless @negotiated
           send_cmd 'qmp_capabilities'
           @negotiated = true
         end
 
-        send_cmd cmd
+        send_cmd(cmd, arguments)
       end
 
       def wait_for(name, value, timeout = 60)
@@ -50,8 +50,11 @@ module AutoHCK
 
       private
 
-      def send_cmd(cmd)
-        @socket_internal.write JSON.dump({ 'execute' => cmd })
+      def send_cmd(cmd, arguments = nil)
+        cmd_hash = { 'execute' => cmd }
+        cmd_hash['arguments'] = arguments if arguments
+
+        @socket_internal.write JSON.dump(cmd_hash)
         @socket_internal.flush
 
         loop do

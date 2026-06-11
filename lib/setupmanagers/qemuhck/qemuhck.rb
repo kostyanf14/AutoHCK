@@ -216,8 +216,8 @@ module AutoHCK
       end
     end
 
-    def run_hypervisor_client_command(name, cmd)
-      @clients_vm_runners[name].qmp.run_cmd(cmd)
+    def run_hypervisor_client_command(name, cmd, arguments = nil)
+      @clients_vm_runners[name].qmp.run_cmd(cmd, arguments)
     end
 
     def wait_for_hypervisor_client_event(name, event, timeout: 60)
